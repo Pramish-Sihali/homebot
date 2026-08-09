@@ -1,0 +1,34 @@
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# --- Coursework paperwork ----------------------------------------------------
+# This repository holds the group project's code, tests, analysis and demo
+# material only. Graded write-ups stay out of it, and individual assignments
+# must never be committed.
+week_2/
+week_3/
+week_4/
+week_5/
+week_6/
+week_7/
+week_8/
+*_Individual_Assignment.*
+*_Project_Paper.*
+*_Source_Code.*
+*_Project_Overview.*
+*_Presentation_Script.*
+DQ_*.docx
+team-brief.*
+TECH315_Project_Proposal.docx
+TECH 315 Models of Computation.docx.pdf
+week1-submission.md
+
+# --- Editors / OS ------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+*.swp
