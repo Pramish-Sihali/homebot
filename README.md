@@ -39,6 +39,37 @@ python3 run_tests.py            # the full test suite: 161 tests, ~10s
 python3 analysis/analyze.py     # the performance measurements
 ```
 
+## Hosted demo (Vercel)
+
+The same system is also reachable from a browser: `api/index.py` is a thin
+FastAPI wrapper around `robot_walk.pipeline` (imported unchanged, same rule
+the tests and analysis harness follow), and `index.html` is one plain
+HTML/CSS/JS page — no build step, no framework — that calls it. It reproduces
+the CLI's four modes (one walk, `--demo`, `--tables`, the test suite) as
+buttons, and shows the exact same text report in a `<pre>` block. This is a
+convenience for sharing the system outside class; the graded live demo is
+still `main.py`, text-only, per the syllabus.
+
+```bash
+pip install fastapi uvicorn        # not needed by main.py itself
+uvicorn api.index:app --reload     # http://127.0.0.1:8000, frontend served separately
+
+npm i -g vercel
+vercel dev                         # serves index.html + api/* together, like production
+vercel --prod                      # deploy
+```
+
+| Route | Mirrors |
+|-------|---------|
+| `POST /api/run {walk, full_trace}` | `main.py WALK [--full-tape]` |
+| `GET /api/demo` | `main.py --demo` |
+| `GET /api/tables` | `main.py --tables` |
+| `GET /api/tests` | `run_tests.py` |
+
+`/api/tests` runs all 161 tests on request (~10s); `vercel.json` sets
+`maxDuration: 60` for that function — lower it, or the plan's limit, if the
+hosting plan doesn't allow 60s.
+
 ## Layout
 
 | Path | What it holds |
@@ -49,6 +80,7 @@ python3 analysis/analyze.py     # the performance measurements
 | `run_tests.py` | test runner with a grouped summary |
 | `analysis/` | the performance measurement harness and what it found |
 | `demo/` | the live-demo run sheet and the presentation deck |
+| `api/index.py`, `index.html`, `vercel.json`, `requirements.txt` | the hosted browser demo (Vercel) |
 
 Each folder has its own README with the detail.
 

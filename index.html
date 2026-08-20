@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robot Walk Recognizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --border: #e2e5ea;
+    --border-strong: #c7cbd4;
+    --text: #16181d;
+    --muted: #62687a;
+    --accent: #1f3864;
+    --accent-soft: #eaeef5;
+    --accent-ink: #ffffff;
+    --accept: #15803d;
+    --accept-soft: #e7f6ec;
+    --reject: #b91c1c;
+    --reject-soft: #fbeaea;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Courier New", monospace;
+    --sans: "Lexend Deca", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1.25rem 4rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.5;
+  }
+  main { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 0.2rem; letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); margin: 0 0 1.5rem; font-size: 0.92rem; }
+  code { font-family: var(--mono); background: var(--accent-soft); color: var(--accent); padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+
+  /* ---- tabs ---- */
+  .tabs { display: flex; gap: 0.2rem; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; overflow-x: auto; }
+  .tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    padding: 0.65rem 1rem; font-family: var(--sans); font-size: 0.86rem; font-weight: 600;
+    color: var(--muted); cursor: pointer; white-space: nowrap; border-radius: 0;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .card-title { margin: 0 0 0.6rem; font-size: 1rem; }
+  .controls .row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+  input[type="text"] {
+    flex: 1 1 240px;
+    min-width: 0;
+    padding: 0.55rem 0.7rem;
+    font-family: var(--mono);
+    font-size: 1rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    text-transform: uppercase;
+    background: var(--surface);
+    color: var(--text);
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  label.check {
+    display: flex; align-items: center; gap: 0.35rem;
+    font-size: 0.85rem; color: var(--muted); white-space: nowrap;
+  }
+  button {
+    padding: 0.55rem 1rem;
+    font-size: 0.88rem;
+    font-family: var(--sans);
+    font-weight: 600;
+    border: 1px solid var(--accent);
+    border-radius: 7px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { opacity: 0.92; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .hint { color: var(--muted); font-size: 0.82rem; margin: 0.7rem 0 0; }
+  .placeholder { color: var(--muted); font-size: 0.9rem; padding: 0.5rem 0.1rem; }
+
+  .pill {
+    display: inline-flex; align-items: center;
+    padding: 0.22rem 0.6rem; border-radius: 999px;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
+    font-family: var(--mono); white-space: nowrap;
+  }
+  .pill-pass { background: var(--accept-soft); color: var(--accept); }
+  .pill-fail { background: var(--reject-soft); color: var(--reject); }
+
+  .verdict-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .verdict-row .pill { font-size: 0.76rem; padding: 0.32rem 0.7rem; }
+
+  /* ---- dashboard: the walk + 3 tiers as a 2x2 grid ---- */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+  .dashboard-grid .card { margin-bottom: 0; }
+  @media (max-width: 720px) {
+    .dashboard-grid { grid-template-columns: 1fr; }
+  }
+
+  .walk-visual { display: flex; justify-content: center; padding: 0.4rem 0 0.1rem; }
+
+  .tier-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+  .tier-head h3 { margin: 0 0 0.1rem; font-size: 1rem; }
+  .tier-class { margin: 0; color: var(--muted); font-size: 0.78rem; }
+  .tier-question { margin: 0.7rem 0 0.1rem; font-weight: 600; font-size: 0.9rem; }
+  .tier-metaphor { margin: 0 0 0.7rem; color: var(--muted); font-size: 0.8rem; font-style: italic; }
+  .tier-visual {
+    margin: 0.6rem 0;
+    padding: 0.85rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .visual-caption { color: var(--muted); font-size: 0.74rem; margin: 0.55rem 0 0; }
+  .tier-summary { margin: 0.7rem 0 0.1rem; font-size: 0.86rem; }
+
+  details.sub { margin-top: 0.55rem; font-size: 0.84rem; }
+  details.sub summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  details.sub summary:hover { text-decoration: underline; }
+
+  .trace-table-wrap { overflow-x: auto; margin-top: 0.55rem; }
+  table.trace-table { border-collapse: collapse; font-family: var(--mono); font-size: 0.76rem; width: 100%; }
+  table.trace-table th, table.trace-table td { border: 1px solid var(--border); padding: 0.3rem 0.55rem; text-align: left; white-space: nowrap; }
+  table.trace-table thead { background: var(--surface); }
+
+  .mono-block {
+    font-family: var(--mono); font-size: 0.78rem;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.85rem; overflow-x: auto; white-space: pre; margin-top: 0.55rem;
+  }
+
+  .chip-path { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .chip { padding: 3px 9px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-family: var(--mono); font-size: 0.76rem; font-weight: 600; }
+  .chip-dead { background: var(--reject-soft); color: var(--reject); }
+  .chip-arrow { color: var(--muted); font-size: 0.72rem; font-weight: 700; }
+
+  .tape-pair { display: flex; gap: 1.75rem; flex-wrap: wrap; }
+  .tape-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; }
+  .tape { display: flex; gap: 2px; flex-wrap: wrap; }
+  .tape-cell {
+    width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border-strong); border-radius: 4px;
+    font-family: var(--mono); font-size: 0.82rem; background: var(--surface);
+  }
+  .tape-cell.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .tape-cell.crossed { background: var(--surface); color: var(--muted); text-decoration: line-through; }
+
+  /* ---- demo tab ---- */
+  table.demo-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  table.demo-table th, table.demo-table td { border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: left; }
+  table.demo-table th { background: var(--bg); font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+  table.demo-table td.walk { font-family: var(--mono); }
+  table.demo-table tbody tr { cursor: pointer; }
+  table.demo-table tbody tr:hover { background: var(--accent-soft); }
+  table.demo-table tbody tr.selected { background: var(--accent-soft); }
+
+  /* ---- tests tab ---- */
+  .test-summary { display: flex; align-items: center; gap: 0.75rem; }
+  .test-bar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .test-bar-fill { height: 100%; background: var(--accept); }
+  .test-summary.fail .test-bar-fill { background: var(--reject); }
+  .test-total { font-weight: 700; font-family: var(--mono); font-size: 0.85rem; white-space: nowrap; }
+  .test-time { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+  .test-modules { margin-top: 0.9rem; }
+  details.test-module { border-bottom: 1px solid var(--border); padding: 0.55rem 0; }
+  details.test-module:last-child { border-bottom: none; }
+  details.test-module summary {
+    display: flex; align-items: center; gap: 0.6rem; cursor: pointer;
+    list-style: none; font-size: 0.86rem;
+  }
+  details.test-module summary::-webkit-details-marker { display: none; }
+  details.test-module summary::before { content: "\25B8"; color: var(--muted); font-size: 0.7rem; width: 0.8rem; }
+  details.test-module[open] summary::before { content: "\25BE"; }
+  details.test-module .test-label { flex: 1; }
+  details.test-module .test-secs { color: var(--muted); font-family: var(--mono); font-size: 0.76rem; width: 3.4rem; text-align: right; }
+  .case-grid { display: flex; flex-wrap: wrap; gap: 4px; margin: 0.6rem 0 0.1rem 1.4rem; }
+  .case-chip { font-family: var(--mono); font-size: 0.66rem; padding: 2px 7px; border-radius: 5px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); }
+  .case-chip.case-fail { background: var(--reject-soft); color: var(--reject); border-color: transparent; }
+
+  /* ---- transition tables, made visual ---- */
+  table.delta-table { border-collapse: collapse; font-family: var(--mono); font-size: 0.78rem; width: 100%; }
+  table.delta-table th, table.delta-table td { border: 1px solid var(--border); padding: 0.32rem 0.6rem; text-align: left; white-space: nowrap; }
+  table.delta-table thead { background: var(--bg); }
+  table.delta-table .mono-strong { font-weight: 700; }
+  table.delta-table td.cell-reject { background: var(--reject-soft); color: var(--reject); }
+  table.delta-table td.cell-accent { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+  table.delta-table tr.row-reject td:first-child { color: var(--reject); }
+  table.delta-table tr.row-accept { background: var(--accept-soft); }
+
+  footer { color: var(--muted); font-size: 0.78rem; margin-top: 2rem; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Robot Walk Recognizer</h1>
+  <p class="subtitle">
+    TECH 315 &middot; Models of Computation &mdash; one walk over
+    <code>{N, S, E, W}</code>, three machines: DFA &rarr; PDA &rarr; TM.
+  </p>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="walk">Walk</button>
+    <button class="tab" data-tab="demo">Design-validation demo</button>
+    <button class="tab" data-tab="tables">Transition tables</button>
+    <button class="tab" data-tab="tests">Test suite</button>
+  </nav>
+
+  <section id="panel-walk" class="panel active">
+    <div class="card controls">
+      <div class="row">
+        <input id="walk" type="text" placeholder="NNESSW" autocomplete="off" spellcheck="false">
+        <label class="check"><input id="fullTrace" type="checkbox"> full tape trace (raw report)</label>
+        <button id="runBtn">Run</button>
+      </div>
+      <p class="hint">
+        Letters N, S, E, W only. Try <code>NESW</code> (home), <code>NES</code>
+        (Tier 3 says no), or <code>NS</code> (Tier 1 says no, the others say yes).
+      </p>
+    </div>
+    <div id="walkResults"><p class="placeholder">Type a walk and press Run.</p></div>
+  </section>
+
+  <section id="panel-demo" class="panel">
+    <div class="card">
+      <h3 class="card-title">Design-validation walks (Week 4 design document, Table 8)</h3>
+      <p class="hint" style="margin:0 0 0.7rem;">Click any row to see its full breakdown below.</p>
+      <div id="demoTableWrap"><p class="placeholder">Loading…</p></div>
+    </div>
+    <div id="demoDetail"></div>
+  </section>
+
+  <section id="panel-tables" class="panel">
+    <div id="tablesWrap"><p class="placeholder">Loading…</p></div>
+  </section>
+
+  <section id="panel-tests" class="panel">
+    <div class="card controls">
+      <div class="row"><button id="testsBtn">Run test suite</button></div>
+      <p class="hint">Runs all 161 tests against the independent oracle and lists every one that ran.</p>
+    </div>
+    <div id="testsResults"></div>
+  </section>
+
+  <footer>Pramish Sihali &middot; Rista Shrestha &middot; Raksha Shrestha &middot; Manish Yadav</footer>
+</main>
+
+<script>
+function esc(value) {
+  return String(value).replace(/[&<>"']/g, ch => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+  ));
+}
+
+async function callApi(path, options) {
+  const res = await fetch(path, options);
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.detail || res.statusText);
+  return body;
+}
+
+/* ---------------------------------------------------------------- tabs */
+const tabs = Array.from(document.querySelectorAll(".tab"));
+const panels = {
+  walk: document.getElementById("panel-walk"),
+  demo: document.getElementById("panel-demo"),
+  tables: document.getElementById("panel-tables"),
+  tests: document.getElementById("panel-tests"),
+};
+const loadedOnce = { demo: false, tables: false };
+
+function activateTab(name) {
+  tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  Object.entries(panels).forEach(([key, el]) => el.classList.toggle("active", key === name));
+  if (name === "demo" && !loadedOnce.demo) { loadedOnce.demo = true; loadDemoTable(); }
+  if (name === "tables" && !loadedOnce.tables) { loadedOnce.tables = true; loadTables(); }
+}
+tabs.forEach(t => t.addEventListener("click", () => activateTab(t.dataset.tab)));
+
+/* ------------------------------------------------- the walk, as an SVG path */
+function buildWalkSVG(path) {
+  const cell = 26, pad = 26;
+  const xs = path.map(p => p[0]), ys = path.map(p => p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const w = (maxX - minX) * cell + pad * 2;
+  const h = (maxY - minY) * cell + pad * 2;
+  const toX = x => pad + (x - minX) * cell;
+  const toY = y => pad + (maxY - y) * cell; // north is up, SVG y grows down
+
+  const points = path.map(([x, y]) => `${toX(x)},${toY(y)}`).join(" ");
+
+  const seen = new Set();
+  let dots = "";
+  path.forEach(([x, y], i) => {
+    const key = x + "," + y;
+    if (seen.has(key) || i === 0 || i === path.length - 1) return;
+    seen.add(key);
+    dots += `<circle cx="${toX(x)}" cy="${toY(y)}" r="3.5" fill="#c7cbd4" />`;
+  });
+
+  const [hx, hy] = path[0];
+  const [ex, ey] = path[path.length - 1];
+  const sameEnd = hx === ex && hy === ey;
+
+  return `<svg viewBox="0 0 ${Math.max(w, cell * 1.5)} ${Math.max(h, cell * 1.5)}"
+             width="100%" height="${Math.min(Math.max(h, cell * 1.5) + 10, 260)}"
+             preserveAspectRatio="xMidYMid meet">
+      <polyline points="${points}" fill="none" stroke="#1f3864" stroke-width="2.5"
+                stroke-linejoin="round" stroke-linecap="round" opacity="0.85" />
+      ${dots}
+      ${!sameEnd ? `<circle cx="${toX(ex)}" cy="${toY(ey)}" r="7" fill="#ffffff" stroke="#1f3864" stroke-width="2.5" />` : ""}
+      <rect x="${toX(hx) - 7}" y="${toY(hy) - 7}" width="14" height="14" rx="3" fill="#1f3864" />
+      <text x="${toX(hx)}" y="${toY(hy) + 3.5}" text-anchor="middle" font-size="9" fill="#ffffff" font-family="sans-serif">H</text>
+    </svg>`;
+}
+
+/* ----------------------------------------- Tier 1: state path as chips */
+function buildStatePath(trace) {
+  const states = [trace[0][3]];
+  const symbols = [];
+  for (let i = 1; i < trace.length; i++) {
+    symbols.push(trace[i][1]);
+    states.push(trace[i][3]);
+  }
+  let html = `<div class="chip-path">`;
+  states.forEach((s, i) => {
+    const dead = String(s).includes("dead");
+    html += `<span class="chip ${dead ? "chip-dead" : ""}">${esc(s)}</span>`;
+    if (i < symbols.length) html += `<span class="chip-arrow">&rarr; ${esc(symbols[i])} &rarr;</span>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+/* --------------------------------- Tier 2: stack height as a sparkline */
+function buildStackBars(trace) {
+  const series = trace.map(row => {
+    const s = String(row[4]);
+    const n = (s.match(/N/g) || []).length;
+    const so = (s.match(/S/g) || []).length;
+    if (n > 0) return n;
+    if (so > 0) return -so;
+    return 0;
+  });
+  const max = Math.max(1, ...series.map(v => Math.abs(v)));
+  const barW = 9, gap = 3, height = 64, mid = height / 2;
+  const width = Math.max(series.length * (barW + gap), 20);
+  const bars = series.map((v, i) => {
+    const h = (Math.abs(v) / max) * (mid - 6);
+    const y = v >= 0 ? mid - h : mid;
+    const color = v > 0 ? "#1f3864" : (v < 0 ? "#8992a8" : "#c7cbd4");
+    return `<rect x="${i * (barW + gap)}" y="${y}" width="${barW}" height="${Math.max(h, 1.5)}" fill="${color}" rx="1.5" />`;
+  }).join("");
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" style="max-width:100%">
+      <line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="#e2e5ea" stroke-width="1" />
+      ${bars}
+    </svg>`;
+}
+
+/* --------------------------------------- Tier 3: the tape, as a strip */
+function buildTapeStrip(tapeStr) {
+  if (tapeStr === "(empty)") return `<div style="color:var(--muted);font-family:var(--mono);font-size:0.82rem;">(empty)</div>`;
+  const cells = [...String(tapeStr)].map(ch => {
+    const crossed = ch === "x";
+    return `<span class="tape-cell ${crossed ? "crossed" : "active"}">${crossed ? "&times;" : esc(ch)}</span>`;
+  }).join("");
+  return `<div class="tape">${cells}</div>`;
+}
+
+const TIER_META = {
+  1: { name: "DFA M1", cls: "regular", metaphor: "a goldfish — remembers only the last move it made" },
+  2: { name: "PDA P2", cls: "context-free, not regular", metaphor: "a stack of sticky notes, one per unmatched north or south step" },
+  3: { name: "TM M3", cls: "decidable, not context-free", metaphor: "a notebook, crossing off matched pairs on a strip" },
+};
+
+function traceTable(run) {
+  const head = run.headers.map(h => `<th>${esc(h)}</th>`).join("");
+  const rows = run.trace.map(row => `<tr>${row.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("");
+  return `<div class="trace-table-wrap"><table class="trace-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function tierVisual(run) {
+  if (run.tier === 1) {
+    return buildStatePath(run.trace) + `<p class="visual-caption">the state after each step — red means the trap state (a reversal already happened)</p>`;
+  }
+  if (run.tier === 2) {
+    return buildStackBars(run.trace) + `<p class="visual-caption">stack height after each step — north tally up, south tally down, back to the line means empty</p>`;
+  }
+  const first = run.trace[0][3];
+  const last = run.trace[run.trace.length - 1][3];
+  return `<div class="tape-pair">
+      <div><div class="tape-label">start</div>${buildTapeStrip(first)}</div>
+      <div><div class="tape-label">end</div>${buildTapeStrip(last)}</div>
+    </div>
+    <p class="visual-caption">&times; = crossed off (matched); a plain letter left at the end means it never found its partner</p>`;
+}
+
+function tierCard(run) {
+  const meta = TIER_META[run.tier];
+  const derivation = run.extra && run.extra.length
+    ? `<details class="sub"><summary>Leftmost derivation in G2</summary><pre class="mono-block">${esc(run.extra.join("\n\n"))}</pre></details>`
+    : "";
+  return `
+    <section class="card tier-card">
+      <div class="tier-head">
+        <div>
+          <h3>Tier ${run.tier} &middot; ${meta.name}</h3>
+          <p class="tier-class">${meta.cls}</p>
+        </div>
+        <span class="pill ${run.accepted ? "pill-pass" : "pill-fail"}">${run.verdict}</span>
+      </div>
+      <p class="tier-question">${esc(run.question)}</p>
+      <p class="tier-metaphor">${meta.metaphor}</p>
+      <div class="tier-visual">${tierVisual(run)}</div>
+      <p class="tier-summary">${esc(run.summary)}</p>
+      ${derivation}
+      <details class="sub">
+        <summary>Show trace table (${run.trace.length} rows)</summary>
+        ${traceTable(run)}
+      </details>
+    </section>`;
+}
+
+/* ---- the shared 2x2 dashboard: the walk box + 3 tier boxes ---- */
+function buildDashboard(data) {
+  const pills = [["Tier 1 (DFA)", data.verdicts.tier1], ["Tier 2 (PDA)", data.verdicts.tier2], ["Tier 3 (TM)", data.verdicts.tier3]]
+    .map(([label, ok]) => `<span class="pill ${ok ? "pill-pass" : "pill-fail"}">${label}: ${ok ? "ACCEPT" : "REJECT"}</span>`)
+    .join("");
+  const cells = [
+    `<section class="card"><h3 class="card-title">The walk</h3><div class="walk-visual">${buildWalkSVG(data.path)}</div></section>`,
+    ...data.runs.map(tierCard),
+  ].join("");
+  return `
+    <div class="verdict-row">${pills}</div>
+    <div class="dashboard-grid">${cells}</div>
+    <details class="sub">
+      <summary>Show raw text report (what <code>main.py</code> prints)</summary>
+      <pre class="mono-block">${esc(data.report)}</pre>
+    </details>`;
+}
+
+async function loadWalkInto(container, walkStr, fullTrace) {
+  container.innerHTML = `<p class="placeholder">Running…</p>`;
+  try {
+    const data = await callApi("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ walk: walkStr, full_trace: !!fullTrace }),
+    });
+    container.innerHTML = buildDashboard(data);
+  } catch (err) {
+    container.innerHTML = `<p class="placeholder">Error: ${esc(err.message)}</p>`;
+  }
+}
+
+/* --------------------------------------------------------------- Walk tab */
+const walkInput = document.getElementById("walk");
+const runBtn = document.getElementById("runBtn");
+const walkResults = document.getElementById("walkResults");
+
+function runWalkTab() {
+  const walk = walkInput.value.trim().toUpperCase();
+  const fullTrace = document.getElementById("fullTrace").checked;
+  runBtn.disabled = true;
+  loadWalkInto(walkResults, walk, fullTrace).finally(() => { runBtn.disabled = false; });
+}
+runBtn.addEventListener("click", runWalkTab);
+walkInput.addEventListener("keydown", e => { if (e.key === "Enter") runWalkTab(); });
+
+/* -------------------------------------------------------------- Demo tab */
+function verdictCell(ok) {
+  return `<td><span class="pill ${ok ? "pill-pass" : "pill-fail"}">${ok ? "yes" : "no"}</span></td>`;
+}
+
+async function loadDemoTable() {
+  const wrap = document.getElementById("demoTableWrap");
+  const detail = document.getElementById("demoDetail");
+  wrap.innerHTML = `<p class="placeholder">Loading…</p>`;
+  try {
+    const data = await callApi("/api/demo");
+    const rows = data.rows.map(r => `
+      <tr class="demo-row" data-walk="${esc(r.walk === "(empty)" ? "" : r.walk)}">
+        <td class="walk">${esc(r.walk)}</td>
+        <td>${esc(r.description)}</td>
+        ${verdictCell(r.tier1)}${verdictCell(r.tier2)}${verdictCell(r.tier3)}
+        <td><span class="pill ${r.matches_design ? "pill-pass" : "pill-fail"}">${r.matches_design ? "pass" : "FAIL"}</span></td>
+      </tr>`).join("");
+    const extraRows = data.extra.map(r => `
+      <tr class="demo-row" data-walk="${esc(r.walk)}">
+        <td class="walk">${esc(r.walk)}</td>
+        <td>${esc(r.description)}</td>
+        ${verdictCell(r.tier1)}${verdictCell(r.tier2)}${verdictCell(r.tier3)}
+      </tr>`).join("");
+    wrap.innerHTML = `
+      <div class="trace-table-wrap">
+        <table class="demo-table">
+          <thead><tr><th>walk</th><th>what it is</th><th>tier 1</th><th>tier 2</th><th>tier 3</th><th>vs design</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <p class="tier-summary">${data.failures
+        ? `${data.failures} walk(s) disagree with the design.`
+        : "All 8 walks agree with the design. The last two rows fail Tier 1 but pass Tiers 2 and 3 — the three questions are independent, not nested."}</p>
+      <h3 class="card-title" style="margin-top:1.5rem;">More walks to try</h3>
+      <p class="hint" style="margin:0 0 0.7rem;">Longer and more elaborate — illustrations, not part of the graded Table 8 above.</p>
+      <div class="trace-table-wrap">
+        <table class="demo-table">
+          <thead><tr><th>walk</th><th>what it is</th><th>tier 1</th><th>tier 2</th><th>tier 3</th></tr></thead>
+          <tbody>${extraRows}</tbody>
+        </table>
+      </div>`;
+    wrap.querySelectorAll(".demo-row").forEach(tr => {
+      tr.addEventListener("click", () => {
+        wrap.querySelectorAll(".demo-row").forEach(x => x.classList.remove("selected"));
+        tr.classList.add("selected");
+        loadWalkInto(detail, tr.dataset.walk, false);
+      });
+    });
+  } catch (err) {
+    wrap.innerHTML = `<p class="placeholder">Error: ${esc(err.message)}</p>`;
+  }
+}
+
+/* ------------------------------------------------------------ Tables tab */
+function deltaCell(text, cls) {
+  return `<td${cls ? ` class="${cls}"` : ""}>${esc(text)}</td>`;
+}
+
+function buildDfaTable(t, raw) {
+  const head = `<th>state</th>` + t.symbols.map(s => `<th>${esc(s)}</th>`).join("") + `<th>accepting?</th>`;
+  const rows = t.rows.map(r => {
+    const cells = r.cells.map(dest => deltaCell(dest, dest === t.dead ? "cell-reject" : "cell-accent")).join("");
+    const rowClass = r.state === t.dead ? "row-reject" : "";
+    return `<tr class="${rowClass}"><td class="mono-strong">${esc(r.state)}</td>${cells}<td>${
+      r.accepting ? '<span class="pill pill-pass">yes</span>' : '<span class="pill pill-fail">no</span>'
+    }</td></tr>`;
+  }).join("");
+  return `<section class="card">
+      <h3 class="card-title">&delta;1 &middot; DFA M1 (Tier 1)</h3>
+      <div class="trace-table-wrap"><table class="delta-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="visual-caption">start state ${esc(t.start)}; every state but ${esc(t.dead)} accepts</p>
+      <details class="sub"><summary>Show raw text</summary><pre class="mono-block">${esc(raw)}</pre></details>
+    </section>`;
+}
+
+function buildPdaTable(t, raw) {
+  const rows = t.rows.map(r => {
+    const isAccept = r.next_state === t.accept;
+    return `<tr class="${isAccept ? "row-accept" : ""}">
+        <td class="mono-strong">${esc(r.state)}</td>
+        ${deltaCell(r.read)}${deltaCell(r.pop)}${deltaCell(r.next_state)}${deltaCell(r.push, "cell-accent")}
+        <td>${esc(r.meaning)}</td>
+      </tr>`;
+  }).join("");
+  return `<section class="card">
+      <h3 class="card-title">&delta;2 &middot; PDA P2 (Tier 2)</h3>
+      <div class="trace-table-wrap"><table class="delta-table">
+        <thead><tr><th>state</th><th>read</th><th>pop</th><th>&rarr; state</th><th>push</th><th>meaning</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p class="visual-caption">start ${esc(t.start)}; accepts by reaching ${esc(t.accept)}</p>
+      <details class="sub"><summary>Show raw text</summary><pre class="mono-block">${esc(raw)}</pre></details>
+    </section>`;
+}
+
+function buildTmTable(t, raw) {
+  const groups = {};
+  t.rows.forEach(r => { (groups[r.phase] = groups[r.phase] || []).push(r); });
+  const order = ["check the alphabet", "phase 1: pair N against S", "phase 2: pair E against W"];
+  const sections = order.filter(p => groups[p]).map(phase => {
+    const rows = groups[phase].map(r => `
+      <tr>
+        <td class="mono-strong">${esc(r.state)}</td>
+        ${deltaCell(r.symbol)}${deltaCell(r.next_state)}
+        ${deltaCell(r.write, r.write === "x" ? "cell-accent" : "")}
+        <td>${r.direction === "L" ? "&larr;" : "&rarr;"}</td>
+      </tr>`).join("");
+    return `<details class="test-module">
+        <summary>
+          <span class="test-label">${esc(phase)}</span>
+          <span class="pill pill-pass">${groups[phase].length} transitions</span>
+        </summary>
+        <div class="trace-table-wrap"><table class="delta-table">
+          <thead><tr><th>state</th><th>read</th><th>&rarr; state</th><th>write</th><th>move</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </details>`;
+  }).join("");
+  return `<section class="card">
+      <h3 class="card-title">&delta;3 &middot; TM M3 (Tier 3) &mdash; ${t.count} transitions</h3>
+      <div class="test-modules">${sections}</div>
+      <details class="sub"><summary>Show raw text</summary><pre class="mono-block">${esc(raw)}</pre></details>
+    </section>`;
+}
+
+async function loadTables() {
+  const wrap = document.getElementById("tablesWrap");
+  wrap.innerHTML = `<p class="placeholder">Loading…</p>`;
+  try {
+    const data = await callApi("/api/tables");
+    wrap.innerHTML = buildDfaTable(data.dfa_structured, data.dfa)
+      + buildPdaTable(data.pda_structured, data.pda)
+      + buildTmTable(data.tm_structured, data.tm);
+  } catch (err) {
+    wrap.innerHTML = `<p class="placeholder">Error: ${esc(err.message)}</p>`;
+  }
+}
+
+/* ------------------------------------------------------------- Tests tab */
+function moduleBlock(row) {
+  const cases = row.cases.map(c =>
+    `<span class="case-chip ${c.outcome === "fail" ? "case-fail" : ""}" title="${esc(c.raw)}">${esc(c.name)}</span>`
+  ).join("");
+  return `
+    <details class="test-module">
+      <summary>
+        <span class="test-label">${esc(row.label)}</span>
+        <span class="pill ${row.failed ? "pill-fail" : "pill-pass"}">${row.failed ? row.failed + " failed" : "pass"}</span>
+        <span class="test-secs">${row.seconds}s</span>
+      </summary>
+      <div class="case-grid">${cases}</div>
+    </details>`;
+}
+
+document.getElementById("testsBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("testsBtn");
+  const out = document.getElementById("testsResults");
+  btn.disabled = true;
+  out.innerHTML = `<p class="placeholder">Running the 161-test suite (this can take up to a minute on a cold start)…</p>`;
+  try {
+    const data = await callApi("/api/tests");
+    const ratio = data.total ? (data.passed / data.total) * 100 : 0;
+    out.innerHTML = `
+      <section class="card">
+        <div class="test-summary ${data.success ? "pass" : "fail"}">
+          <span class="test-total">${data.passed} / ${data.total} passed</span>
+          <div class="test-bar"><div class="test-bar-fill" style="width:${ratio}%"></div></div>
+          <span class="test-time">${data.seconds}s</span>
+        </div>
+        <div class="test-modules">${data.rows.map(moduleBlock).join("")}</div>
+      </section>`;
+  } catch (err) {
+    out.innerHTML = `<p class="placeholder">Error: ${esc(err.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
