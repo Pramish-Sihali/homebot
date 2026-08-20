@@ -13,6 +13,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -43,6 +44,14 @@ app = FastAPI(title="Robot Walk Recognizer")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
+
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    """The front end. Vercel's FastAPI preset routes the whole app -- including
+    '/' -- through this one function, so the page has to be served from a real
+    route rather than relying on `index.html` being picked up as a static file."""
+    return (ROOT / "index.html").read_text(encoding="utf-8")
 
 
 class WalkRequest(BaseModel):
